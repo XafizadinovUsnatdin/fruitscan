@@ -8,8 +8,12 @@ __pycache__/
 *.h5
 *.pth
 *.pt
+# allow small tracked weights here
+!weights/*.pt
 runs/
 archive/
+fruit_torch/
+ultralytics_fruit/
 
 # Datasets
 train/
