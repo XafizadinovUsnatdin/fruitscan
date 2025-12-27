@@ -3,4 +3,5 @@ ultralytics
 opencv-python-headless==4.8.1.78
 tensorflow==2.20.0
 Pillow
-numpy
+# pin numpy <2 to avoid _ARRAY_API errors with cv2/tf on Streamlit Cloud
+numpy==1.26.4
