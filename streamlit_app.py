@@ -1,16 +1,22 @@
 from pathlib import Path
 import time
+from io import BytesIO
 
-import cv2
 import numpy as np
 import streamlit as st
 import tensorflow as tf
+from PIL import Image
+
+try:
+    import cv2  # optional on Streamlit Cloud; image uploads still work without it
+except Exception:
+    cv2 = None
 
 try:
     from ultralytics import YOLO
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "Ultralytics is required. Install with: pip install ultralytics opencv-python streamlit ultralytics"
+        "Ultralytics is required. Install with: pip install ultralytics opencv-python-headless streamlit ultralytics"
     ) from exc
 
 
@@ -56,8 +62,13 @@ def predict_image_yolo(model, image_bgr: np.ndarray):
 
 
 def predict_image_cnn(model, idx_to_class, image_bgr: np.ndarray, img_size=100):
-    rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    resized = cv2.resize(rgb, (img_size, img_size))
+    if cv2 is not None:
+        rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        resized = cv2.resize(rgb, (img_size, img_size))
+    else:
+        rgb = image_bgr[:, :, ::-1] if image_bgr.shape[2] == 3 else image_bgr
+        pil_img = Image.fromarray(rgb.astype(np.uint8)).resize((img_size, img_size))
+        resized = np.array(pil_img)
     arr = resized.astype("float32") / 255.0
     preds = model.predict(arr[None, ...], verbose=0)[0]
     top_idx = int(np.argmax(preds))
@@ -101,33 +112,34 @@ def main():
         file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
         if file:
             image_bytes = file.read()
-            image_array = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
-            if image_array is None:
-                st.error("Could not read the image.")
-            else:
-                pred = predict_fn(image_array)
-                if pred:
-                    label, conf = pred
-                    st.success(f"{label} ({conf*100:.2f}%)")
-                st.image(cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB), caption="Input image")
+            pil_img = Image.open(BytesIO(image_bytes)).convert("RGB")
+            np_img = np.array(pil_img)
+            # YOLO expects BGR; CNN code handles internally
+            bgr_img = np_img[:, :, ::-1]
+            pred = predict_fn(bgr_img)
+            if pred:
+                label, conf = pred
+                st.success(f"{label} ({conf*100:.2f}%)")
+            st.image(pil_img, caption="Input image")
 
     elif source == "Camera snapshot":
         cam_image = st.camera_input("Take a photo")
         if cam_image:
             image_bytes = cam_image.getvalue()
-            image_array = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
-            if image_array is None:
-                st.error("Could not read the camera image.")
-            else:
-                pred = predict_fn(image_array)
-                if pred:
-                    label, conf = pred
-                    st.success(f"{label} ({conf*100:.2f}%)")
-                st.image(cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB), caption="Camera image")
+            pil_img = Image.open(BytesIO(image_bytes)).convert("RGB")
+            np_img = np.array(pil_img)
+            bgr_img = np_img[:, :, ::-1]
+            pred = predict_fn(bgr_img)
+            if pred:
+                label, conf = pred
+                st.success(f"{label} ({conf*100:.2f}%)")
+            st.image(pil_img, caption="Camera image")
 
     else:  # Camera live
         st.write("Start live camera.")
-        if st.button("Start camera"):
+        if cv2 is None:
+            st.warning("OpenCV not available in this environment; live camera disabled.")
+        elif st.button("Start camera"):
             placeholder = st.empty()
             cap = cv2.VideoCapture(0)
             if not cap.isOpened():
