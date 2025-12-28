@@ -54,11 +54,22 @@ def predict_image_yolo(model, image_bgr: np.ndarray):
     results = model.predict(source=image_bgr, verbose=False)
     if not results:
         return None
-    top = results[0].probs
-    top_idx = int(top.top1)
-    conf = float(top.top1conf)
-    label = model.names.get(top_idx, f"class_{top_idx}")
-    return label, conf
+    res = results[0]
+    # Classification model: use probs
+    if res.probs is not None:
+        top = res.probs
+        top_idx = int(top.top1)
+        conf = float(top.top1conf)
+        label = model.names.get(top_idx, f"class_{top_idx}")
+        return label, conf
+    # Detection model fallback: use highest-confidence box label
+    if res.boxes is not None and len(res.boxes) > 0:
+        box = res.boxes[0]
+        top_idx = int(box.cls[0].item())
+        conf = float(box.conf[0].item())
+        label = model.names.get(top_idx, f"class_{top_idx}")
+        return label, conf
+    return None
 
 
 def predict_image_cnn(model, idx_to_class, image_bgr: np.ndarray, img_size=100):

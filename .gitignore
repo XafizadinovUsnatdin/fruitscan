@@ -10,6 +10,8 @@ __pycache__/
 *.pt
 # allow small tracked weights here
 !weights/*.pt
+!solutions/yolo/weights/*.pt
+!solutions/yolo/yolov8n*.pt
 runs/
 archive/
 fruit_torch/
