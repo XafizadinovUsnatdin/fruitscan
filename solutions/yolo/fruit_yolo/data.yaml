@@ -1,0 +1,6 @@
+# YOLO dataset config (paths are examples; update to your actual labeled dataset)
+train: D:/Study in Slovakia/3 4 5 Introduction to machine learning/FruitClassification/dataset/images/train
+val: D:/Study in Slovakia/3 4 5 Introduction to machine learning/FruitClassification/dataset/images/val
+
+nc: 7
+names: [Apple, Banana, Carambola, Orange, Peach, Pear, Tomatoes]

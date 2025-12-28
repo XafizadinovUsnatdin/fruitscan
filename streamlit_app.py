@@ -82,14 +82,36 @@ def main():
     st.title("Fruit Classifier")
     st.write("Choose an image or use live camera.")
 
-    backend = st.radio("Model", ["YOLOv8n-cls", "CNN (fruit_cnn.h5)"], horizontal=True)
+    # Resolve default model paths (supports reorganized folders under solutions/)
+    base_dir = Path(__file__).parent
+    yolo_candidates = [
+        base_dir / "solutions" / "yolo" / "runs" / "detect" / "fruit_yolo" / "weights" / "best.pt",
+        base_dir / "solutions" / "yolo" / "weights" / "best.pt",
+        base_dir / "weights" / "best.pt",
+    ]
+    cnn_candidates = [
+        base_dir / "solutions" / "cnn" / "fruit_cnn.h5",
+        base_dir / "fruit_cnn.h5",
+    ]
+    classes_candidates = [
+        base_dir / "solutions" / "cnn" / "class_indices.json",
+        base_dir / "class_indices.json",
+    ]
 
-    if backend == "YOLOv8n-cls":
-        yolo_weights = "weights/best.pt"
+    def first_existing(paths):
+        for p in paths:
+            if p.exists():
+                return p
+        return paths[-1]
+
+    backend = st.radio("Model", ["YOLO (best.pt)", "CNN (fruit_cnn.h5)"], horizontal=True)
+
+    if backend.startswith("YOLO"):
+        yolo_weights = first_existing(yolo_candidates)
         loader = lambda: load_yolo_model(yolo_weights)
     else:
-        cnn_weights = "fruit_cnn.h5"
-        classes_file = "class_indices.json"
+        cnn_weights = first_existing(cnn_candidates)
+        classes_file = first_existing(classes_candidates)
         loader = lambda: load_cnn_model(cnn_weights, classes_file)
 
     # Load model once
@@ -100,7 +122,7 @@ def main():
         st.stop()
 
     # Normalize predict_fn for both backends
-    if backend == "YOLOv8n-cls":
+    if backend.startswith("YOLO"):
         predict_fn = lambda frame: predict_image_yolo(loaded, frame)
     else:
         cnn_model, idx_to_class = loaded
